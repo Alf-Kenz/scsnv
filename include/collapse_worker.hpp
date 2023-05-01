@@ -105,6 +105,7 @@ class CollapseWorker {
         std::vector<ReadContig*>                  contigs_;
         std::vector<ReadIsland*>                  islands_;
         std::vector<CollapseSplice>               fsplices_;
+        std::vector<uint32_t>                     fcoverage_;
         std::string                               cgaps_;
         std::string                               fbases_;
         std::string                               fquals_;

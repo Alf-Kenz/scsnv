@@ -28,7 +28,7 @@ SOFTWARE.
 using namespace gwsc;
 
 void ReadIsland::merge(std::vector<BamDetail *> & umis, std::string & fbases, std::string & fquals, 
-        CigarString & fcigar, std::vector<CollapseSplice> & fsplices){ //, std::vector<unsigned int> & coverage){*/
+                       CigarString & fcigar, std::vector<CollapseSplice> & fsplices, std::vector<uint32_t> & coverage){
 
     N = contigs.size();
     merge_ins_();
@@ -54,7 +54,11 @@ void ReadIsland::merge(std::vector<BamDetail *> & umis, std::string & fbases, st
             for(size_t x = 0; x < ins[istart].len(); x++){
                 fquals.push_back(ins[istart].quals[x]);
                 fbases.push_back(ins[istart].bases[x]);
-                //coverage.push_back(cov);
+                //checked many times. I think this is the start of an island, when there is gaps between that and the reference
+                //and almost positive is missing from all of them, which is when it comes here
+                //So there are 0 reads / 0 supporting
+                //if mess with int packing, will need to modify here too
+                coverage.push_back(0);
             }
             fcigar.push_back({ins[istart].len(), Cigar::INS});
         }
@@ -65,12 +69,33 @@ void ReadIsland::merge(std::vector<BamDetail *> & umis, std::string & fbases, st
             }else{
                 fcigar.back().len++;
             }
-            //coverage.push_back(bcounts[i * 6 + 5]);
+
+            int total_rawreads = bcounts[i * 6 + 0] +
+              bcounts[i * 6 + 1] +
+              bcounts[i * 6 + 2] +
+              bcounts[i * 6 + 3] +
+              bcounts[i * 6 + 4] +
+              bcounts[i * 6 + 5];
+            int total_gaps = bcounts[i * 6 + 5];
+
+
+            coverage.push_back(pack_twoint_one(total_gaps, total_rawreads));
         }else{
             fbases.push_back(cbases[i]);
             fquals.push_back(cquals[i]);
-            //int bc = ADNA5::ltable_[static_cast<unsigned int>(cbases[i])];
-            //coverage.push_back(bcounts[i * 6 + bc]);
+            //ltable_ goes C->1, G->2, ..., and every other letter to -1.
+            int bc = ADNA5::ltable_[static_cast<unsigned int>(cbases[i])];
+            int consensus_bcd_count = bcounts[i * 6 + bc];
+            int total_rawreads      = bcounts[i * 6 + 0] +
+                                      bcounts[i * 6 + 1] +
+                                      bcounts[i * 6 + 2] +
+                                      bcounts[i * 6 + 3] +
+                                      bcounts[i * 6 + 4] +
+                                      bcounts[i * 6 + 5];
+
+            //5 is for "_" a gap, still counts
+
+            coverage.push_back(pack_twoint_one(consensus_bcd_count, total_rawreads));
 
             if(fcigar.empty() || fcigar.back().op != Cigar::MATCH){
                 fcigar.push_back(CigarElement(1, Cigar::MATCH));

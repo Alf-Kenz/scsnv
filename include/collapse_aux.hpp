@@ -114,8 +114,8 @@ struct SortBamDetailTidPos{
 class ReadIsland{
     public:
         void merge(std::vector<BamDetail*> & umis, std::string & fbases, std::string & fquals, 
-                   CigarString & fcigar, std::vector<CollapseSplice> & splices); 
-                   //std::vector<unsigned int> & coverage);
+                   CigarString & fcigar, std::vector<CollapseSplice> & splices,
+                   std::vector<unsigned int> & coverage);
         void debug();
 
 
