@@ -118,6 +118,25 @@ class ReadIsland{
                    std::vector<unsigned int> & coverage);
         void debug();
 
+        uint32_t pack_twoint_one(uint32_t a, uint32_t b) {
+          // Check for overflow (both values should be less than 2^16)
+          // clamp the uint32 at uint16, TODO can check later if this ever happens
+          a = std::min(a,
+                       static_cast<uint32_t>(std::numeric_limits<uint16_t>::max()));
+          b = std::min(b,
+                       static_cast<uint32_t>(std::numeric_limits<uint16_t>::max()));
+
+          //TODO while testing, scream if errors. But can remove for speed if
+          //check elsewhere/never comes up
+          if(a ==  std::numeric_limits<uint16_t>::max() ||
+             b ==  std::numeric_limits<uint16_t>::max()){
+            std::cout << "OVERFLOWED!";
+          }
+
+          // Pack the two uint16_t integers into one uint32_t
+          return (a << 16) | b;
+        }
+
 
         std::vector<ReadContig*>        contigs;
         //std::vector<CollapseSplice>     splices;

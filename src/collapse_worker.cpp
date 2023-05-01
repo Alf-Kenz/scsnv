@@ -378,6 +378,32 @@ void CollapseWorker::infer_qpos_cigar(BamDetail & d, std::stringstream & ss) {
 }
 */
 
+void CollapseWorker::compress_RLE(const std::vector<uint32_t>& data, std::vector<uint32_t>& compressed){
+  //done right before this is called
+  // compressed.clear();
+  if (data.empty()) {
+    return;
+  }
+
+  uint32_t prev = data[0];
+  uint32_t count = 1;
+
+  for (size_t i = 1; i < data.size(); ++i) {
+    if (data[i] == prev) {
+      ++count;
+    } else {
+      compressed.push_back(prev);
+      compressed.push_back(count);
+      prev = data[i];
+      count = 1;
+    }
+  }
+
+  // Append the last pair
+  compressed.push_back(prev);
+  compressed.push_back(count);
+}
+
 void CollapseWorker::make_read_(BamDetail & bamd, uint32_t NM) {
     bam1_t * bam = bamd.b;
     BamDetail & d = *umis_[islands_[0]->contigs[0]->index];

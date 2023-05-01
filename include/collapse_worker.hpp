@@ -75,6 +75,9 @@ class CollapseWorker {
         void process_range(BamBuffer::rpair, unsigned int fno = std::numeric_limits<unsigned int>::max());
         void process_range_ds(BamBuffer::rpair, double ds);
 
+
+        void compress_RLE(const std::vector<uint32_t>& data, std::vector<uint32_t>& compressed);
+
         using cout_vect = std::vector<BamDetail*>;
         cout_vect                                 collapsed;
 
@@ -106,6 +109,7 @@ class CollapseWorker {
         std::vector<ReadIsland*>                  islands_;
         std::vector<CollapseSplice>               fsplices_;
         std::vector<uint32_t>                     fcoverage_;
+        std::vector<uint32_t>                     fcoverageCompressed_;
         std::string                               cgaps_;
         std::string                               fbases_;
         std::string                               fquals_;
