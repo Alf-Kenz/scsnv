@@ -219,6 +219,7 @@ class BamGeneReaderFiltered: public BamGeneReader<T, R, P> {
 
     protected:
         std::string btmp_;
+        std::string utmp_;
 
         virtual bool get_(){
             unsigned int fno = 0;
@@ -232,7 +233,12 @@ class BamGeneReaderFiltered: public BamGeneReader<T, R, P> {
                 if(dash != std::string::npos){
                     btmp_ = btmp_.erase(dash);
                 }
-                unsigned int bid = filter_(btmp_, fno);
+
+                // Make the barcode cell barcode + umi so don't collapse them
+                // Does make for a lot of unique barcodes
+                utmp_ = bam_aux2Z(bam_aux_get(BamGeneReader<T,R,P>::next_.b, "UB"));
+                unsigned int bid = filter_(btmp_ + "_" + utmp_, fno);
+
                 if(bid == std::numeric_limits<unsigned int>::max()) continue;
                 if(!ds_.empty()){
                     if(dist_(gen_) >= ds_[fno]){

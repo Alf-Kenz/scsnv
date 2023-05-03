@@ -52,6 +52,51 @@ struct PileupRead {
         return *(bam_get_qual(d->b) + qpos);
     }
 
+    // Given the 'CC' tag from the modified coverage, which gives the number of
+    // raw (uncollapsed) reads associated with the SNV, and the total number.
+    // Two optimizations make this more complicated
+    // 1) Assumed the total number of reads for each base is less than
+    // uint16_t=65535, so packed both (number of positive reads) and (total
+    // number of reads) into 1 uint32_t. Here I pass along that uint32_t without
+    // splitting
+    // 2) Since so many neighboring bases have the same values, I did a
+    // rudimentary read length encoding where I store (value, # times repeated).
+    // Could do gzip, it's all small number of elements. So here, given a target
+    // `qpos`, I iterate through to find the result. Could destructure once and
+    // just do a vector look up, dunno. Could also do a gzip decompression
+
+    //TODO don't read in the bam every time, store the umi_coverage_tmp
+
+
+    uint32_t make_umi_coverage() const {
+      unsigned int CC_len = bam_auxB_len(bam_aux_get(d->b, "CC"));
+      std::vector<uint32_t> umi_coverage_tmp;
+      for(unsigned int CC_i=0; CC_i < CC_len; CC_i++){
+        umi_coverage_tmp.push_back(
+                                   bam_auxB2i(bam_aux_get(d->b, "CC"),
+                                              CC_i));
+      }
+
+      //B/c of read length encoding, should always come in pairs 
+      if((CC_len % 2) != 0){
+            __asm__("int $3");
+      }
+
+      auto umi_coverage_it = umi_coverage_tmp.begin();
+      unsigned int currentI = 0;
+      uint32_t  currentCovg = 0;
+
+      //Really should start currentI at -1, and then add 1 in the first round to
+      //get to 0. But b/c of wanting an unsigned int so no casting, start at 0
+      //and then need qpos to be +1.
+      while(currentI < (qpos+1)){
+        currentCovg = *(umi_coverage_it++);
+        currentI   += *(umi_coverage_it++);
+      }
+
+      return currentCovg;
+    }
+
     int tid() const {
         return d->b->core.tid;
     }
@@ -59,6 +104,7 @@ struct PileupRead {
     int qlen() const {
         return d->b->core.l_qseq;
     }
+
 
     std::vector<unsigned int>     qpositions;
     CigarString                   cigar;
@@ -85,7 +131,8 @@ struct PileupOut{
         : 
             d(r.d), rpos(r.rpos), qpos(r.qpos), qdist(r.qdist),
             base(r.base()), qual(r.qual()), ibases(r.ibases), 
-            dbases(r.dbases), abases(r.abases), NM(r.NM), rev(r.strand == '-')
+            dbases(r.dbases), abases(r.abases), NM(r.NM), rev(r.strand == '-'),
+            umi_coverage(r.make_umi_coverage())
     {
 
     }
@@ -101,6 +148,7 @@ struct PileupOut{
     unsigned int      abases;
     unsigned int      NM;
     bool              rev;
+    uint32_t          umi_coverage;
 };
 
 //template <typename T>
