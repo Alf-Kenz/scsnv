@@ -52,22 +52,21 @@ struct PileupRead {
         return *(bam_get_qual(d->b) + qpos);
     }
 
-    // Given the 'CC' tag from the modified coverage, which gives the number of
-    // raw (uncollapsed) reads associated with the SNV, and the total number.
-    // Two optimizations make this more complicated
-    // 1) Assumed the total number of reads for each base is less than
-    // uint16_t=65535, so packed both (number of positive reads) and (total
-    // number of reads) into 1 uint32_t. Here I pass along that uint32_t without
-    // splitting
-    // 2) Since so many neighboring bases have the same values, I did a
-    // rudimentary read length encoding where I store (value, # times repeated).
-    // Could do gzip, it's all small number of elements. So here, given a target
-    // `qpos`, I iterate through to find the result. Could destructure once and
-    // just do a vector look up, dunno. Could also do a gzip decompression
+    /* Given the 'CC' tag from the modified coverage, which gives the number of
+     * raw (uncollapsed) reads associated with the SNV, and the total number.
+     * Two optimizations make this more complicated
+     * 1) Assumed the total number of reads for each base is less than
+     *     uint16_t=65535, so packed both {number of positive reads} and {total
+     *     number of reads} into 1 uint32_t. Here I pass along that uint32_t without
+     *     splitting
+     * 2) Since so many neighboring bases have the same values, I did a
+     *     rudimentary read-length-encoding where I store {value, # times repeated}.
+     *     Could do gzip, it's all small number of elements. So here, given a target
+     *     `qpos`, I iterate through to find the result. Could destructure once and
+     *     just do a vector look up, dunno. Could also do a gzip decompression
+     */
 
     //TODO don't read in the bam every time, store the umi_coverage_tmp
-
-
     uint32_t make_umi_coverage() const {
       unsigned int CC_len = bam_auxB_len(bam_aux_get(d->b, "CC"));
       std::vector<uint32_t> umi_coverage_tmp;
