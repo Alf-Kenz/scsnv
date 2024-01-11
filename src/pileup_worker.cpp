@@ -105,6 +105,7 @@ void PileupWorker::process_range(BamBuffer::rpair range){
             default:  p.refi = 4; break;
         }
 
+        std::vector<uint32_t> tmp_umi_coverages;
 
         unsigned int plus_cov = 0, minus_cov = 0;
         bool has_plus = false, has_minus = false;
@@ -125,6 +126,7 @@ void PileupWorker::process_range(BamBuffer::rpair range){
                     plus_cov++;
                 }
                 p.coverage++;
+                tmp_umi_coverages.push_back(r.umi_coverage);
                 auto it = bcounter_.insert(std::make_pair(r.d->barcode, std::array<uint16_t, 8>{}));
                 it.first->second[r.base + 4 * r.rev]++;
             }else{
@@ -135,7 +137,8 @@ void PileupWorker::process_range(BamBuffer::rpair range){
         count_barcodes_(p);
 
         if(p.barcodes > 0 && p.refi != 5){
-            coverage.push_back(PositionCoverage(p.tid, p.pos, plus_cov, minus_cov, p.barcodes, p.pbarcodes, p.mbarcodes));
+          coverage.push_back(PositionCoverage(p.tid, p.pos, plus_cov, minus_cov, p.barcodes, p.pbarcodes, p.mbarcodes,
+                                              tmp_umi_coverages));
         }
 
         if((target == nullptr) && (p.barcodes < min_barcodes_ || p.ref == 'N' || p.refi == 5)){

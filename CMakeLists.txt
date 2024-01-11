@@ -8,7 +8,10 @@ endif ()
 set (CMAKE_CXX_STANDARD 11)
 set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic -Wextra")
+set(DEBUG_FLAGS -g)
+
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${DEBUG_FLAGS} -Wall -pedantic -Wextra -fno-omit-frame-pointer -g")
 #set(HDF5_USE_STATIC_LIBRARIES ON)
 
 find_package( HDF5 REQUIRED COMPONENTS C CXX HL)
@@ -24,3 +27,9 @@ SET( EXTERNAL_DIR "${PROJECT_SOURCE_DIR}/external" )
 
 #add_subdirectory("bwa")
 add_subdirectory("src")
+
+# mamba install -c conda-forge clang clangxx
+
+# export CXX=/home/jlanglie/anaconda3/envs/scsnvpy/bin/clang++; export CC=/home/jlanglie/anaconda3/envs/scsnvpy/bin/clang
+# export CXX=; export CC=
+# cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-fsanitize=address  " ..

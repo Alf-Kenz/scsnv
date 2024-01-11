@@ -177,8 +177,13 @@ class TargetFinder {
 
 struct PositionCoverage {
     PositionCoverage(int tid = -1, unsigned int pos = 0, unsigned int pcoverage = 0, unsigned int mcoverage = 0, 
-            unsigned int tbarcodes = 0, unsigned int pbarcodes = 0, unsigned int mbarcodes = 0) 
-        :tid(tid), pos(pos), pcoverage(pcoverage), mcoverage(mcoverage), tbarcodes(tbarcodes), pbarcodes(pbarcodes), mbarcodes(mbarcodes)
+                     unsigned int tbarcodes = 0, unsigned int pbarcodes = 0, unsigned int mbarcodes = 0,
+                     //TODO should never be empty, I don't know what happens if
+                     //has empty. New pointer every time or copy
+                     std::vector<uint32_t> umi_coverages = std::vector<uint32_t>())
+
+    :tid(tid), pos(pos), pcoverage(pcoverage), mcoverage(mcoverage), tbarcodes(tbarcodes), pbarcodes(pbarcodes), mbarcodes(mbarcodes), umi_coverages(umi_coverages)
+
     {
     }
 
@@ -192,6 +197,7 @@ struct PositionCoverage {
     uint32_t tbarcodes = 0;
     uint32_t pbarcodes = 0;
     uint32_t mbarcodes = 0;
+    std::vector<uint32_t> umi_coverages;
 };
 
 struct BarcodeCount{

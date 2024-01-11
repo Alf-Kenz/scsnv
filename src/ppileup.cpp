@@ -33,6 +33,7 @@ SOFTWARE.
 #include <thread>
 #include <algorithm>
 #include <numeric>
+#include <sstream> //for uint32_vector_to_string
 
 using namespace gwsc;
 
@@ -287,11 +288,23 @@ uint32_t count_bigger(const std::vector<uint32_t> & elems) {
     return std::count_if(elems.begin(), elems.end(), [](int c){return c > 0;});
 }
 
+//Takes vector of ints [1,2,3] -> "1_2_3" for external parsing
+//TODO deal with string encoding for space. RLE optimization?
+std::string uint32_vector_to_string(const std::vector<uint32_t> &v) {
+  std::stringstream oss;
+  for (const auto &i : v) {
+    oss << i << "_";
+  }
+  // Remove final underscore, optional if slows down
+  return oss.str().substr(0, oss.str().size() - 1);
+}
+
 void ProgPileup::write_h5f_(const std::string & out, std::vector<BBout> & bouts){
     using namespace H5;
     H5File file(out, H5F_ACC_TRUNC);
     //H5::Group group(file.createGroup("/barcode_rates"));
     std::vector<const char *> ctmp;
+
     for(auto & b : barcodes_) ctmp.push_back(b.c_str());
     write_h5_string("barcodes", ctmp, file);
     write_h5_numeric("refs", refs_, file, PredType::NATIVE_UINT8);
@@ -349,6 +362,33 @@ void ProgPileup::write_h5f_(const std::string & out, std::vector<BBout> & bouts)
         for(auto c : coverage_) tu.push_back(c.mbarcodes);
         std::cout << "minus_barcodes > 0: " << count_bigger(tu) << " / " << tu.size() << "\n";
         write_h5_numeric("minus_barcodes", tu, group, PredType::NATIVE_UINT32);
+
+
+        std::vector<std::string> str_tmp;
+        str_tmp.reserve(coverage_.size());
+
+        for(auto c : coverage_) str_tmp.push_back(uint32_vector_to_string(c.umi_coverages));
+        std::cout << "|umi_coverages|: " << str_tmp.size() << "\n";
+
+        // Could transform the std::string into c_strs -> h5 file. But found
+        // weirdness with max chunk size and gets very big. Better off writing
+        // to a separate coverage file to deal with separately. But when parsing
+        // subset, have to keep indices in track
+
+        gzofstream umi_out_file(out_ + "_umi_coverage.txt.gz");
+        // std::ofstream output_file("./umi_coverage_lines.txt");
+
+        std::ostream_iterator<std::string> output_iterator(umi_out_file, "\n");
+        std::copy(std::begin(str_tmp), std::end(str_tmp), output_iterator);
+
+        // c_strs -> h5 but crashes right at end :-(
+        // std::vector<const char *> c_strs(coverage_.size());
+        // std::transform(std::begin(str_tmp), std::end(str_tmp),
+        //                std::back_inserter(c_strs),
+        //                std::mem_fn(&std::string::c_str)
+        //                );
+
+        // write_h5_string("umi_coverages", c_strs, group);
     }
 
     file.close();

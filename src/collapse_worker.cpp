@@ -213,14 +213,15 @@ void CollapseWorker::collapse_umi_(){
         fbases_.clear();
         freads_ = 0;
         fsplices_.clear();
+        fcoverage_.clear();
         for(size_t i = 0; i < icount_; i++){
             //std::cout << "  Processing group " << i << "\n";
             if(i > 0){
                 int d = islands_[i]->lft - islands_[i - 1]->rgt - 1;
                 if(d > 0) fcigar_.push_back(CigarElement(d, Cigar::REF_SKIP));
             }
-            islands_[i]->merge(umis_, fbases_, fquals_, fcigar_, fsplices_); //, fsplices_, fcoverage_);
-            //islands_[i]->debug();
+            islands_[i]->merge(umis_, fbases_, fquals_, fcigar_, fsplices_, fcoverage_);
+            //islands_[i]->debug(); // __asm__("int $3");
         }
 
         std::sort(fsplices_.begin(), fsplices_.end());
@@ -377,6 +378,32 @@ void CollapseWorker::infer_qpos_cigar(BamDetail & d, std::stringstream & ss) {
 }
 */
 
+void CollapseWorker::compress_RLE(const std::vector<uint32_t>& data, std::vector<uint32_t>& compressed){
+  //done right before this is called
+  // compressed.clear();
+  if (data.empty()) {
+    return;
+  }
+
+  uint32_t prev = data[0];
+  uint32_t count = 1;
+
+  for (size_t i = 1; i < data.size(); ++i) {
+    if (data[i] == prev) {
+      ++count;
+    } else {
+      compressed.push_back(prev);
+      compressed.push_back(count);
+      prev = data[i];
+      count = 1;
+    }
+  }
+
+  // Append the last pair
+  compressed.push_back(prev);
+  compressed.push_back(count);
+}
+
 void CollapseWorker::make_read_(BamDetail & bamd, uint32_t NM) {
     bam1_t * bam = bamd.b;
     BamDetail & d = *umis_[islands_[0]->contigs[0]->index];
@@ -524,20 +551,26 @@ void CollapseWorker::make_read_(BamDetail & bamd, uint32_t NM) {
     bam_aux_append(bam, "XR", 'Z', fqname_.size() + 1, reinterpret_cast<uint8_t*>(const_cast<char*>(fqname_.c_str())));
 
 
-    /*
-    // The base coverage
+
+
+    fcoverageCompressed_.clear();
+    compress_RLE(fcoverage_, fcoverageCompressed_);
+
     bcov_.clear();
+    // The base coverage
     // 1 for the array type, 4 for the size, and 4 * fcoverage size for 32 bit ints
-    bcov_.resize(5 + fcoverage_.size() * 4);
+    bcov_.resize(5 + fcoverageCompressed_.size() * 4);
+    // https://samtools.github.io/hts-specs/SAMv1.pdf
+    //I->uint32 t
     bcov_[0] = 'I';
     uint8_t * bp = &bcov_[0];
     (*bp++) = 'I';
-    uint32_t l = fcoverage_.size();
+    uint32_t l = fcoverageCompressed_.size();
     memcpy(bp, &l, sizeof(uint32_t));
+    //bcov_/bp is a char, so need 4 bytes for coverage length
     bp+=4;
-    memcpy(bp, &fcoverage_[0], fcoverage_.size() * 4);
-    bam_aux_append(bam, "XC", 'B', bcov_.size(), reinterpret_cast<uint8_t*>(&bcov_[0]));
-    */
+    memcpy(bp, &fcoverageCompressed_[0], fcoverageCompressed_.size() * 4);
+    bam_aux_append(bam, "CC", 'B', bcov_.size(), reinterpret_cast<uint8_t*>(&bcov_[0]));
 
 
     /*
