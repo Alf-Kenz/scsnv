@@ -76,14 +76,16 @@ scsnv count -o sample/barcode  -k scsnv/data/737K-august-2016.txt -l V2 sample/r
 scsnv map -l V2 -i index_prefix -g bwa_genome_index -b sample/barcode -t 24 --bam-write 4 -q 4 -c index_prefix/gene_groups.txt -o sample/ sample/run1
 
 #Collapse the mRNA-tags into collapsed molecules
-#If you get a lot of warnings about regions with more than 10M reads, you can increase the number of reads permitted for a single gene
-#region using the -r option, for example, `-r 20`
-#If you run out of memory you can reduce the number of reads (-r 5), however, some genes will not be properly collapsed as a result
+#If you get a lot of warnings about regions with more than 50M reads, you can increase the number of reads permitted for a single gene
+#region using the -r option, for example, `-r 100`
+#If you run out of memory you can reduce the number of reads (-r 20), however, some genes will not be properly collapsed as a result
 scsnv collapse -l V2 -r genome_fasta -i index_prefix -o sample/ --threads 4 --bam-write 8 -b sample/barcode_counts.txt.gz sample/merged.bam
 
-#Find the optimal number of cells
+#Find the optimal number of cells or use a pre-defined list of barcodes
 #If a group file wasn't specified you can add the --skip-mt flag to skip MT DNA(%) calculations
 #There are additional options to control how cells are filtered that can be used see scsnvmisc cells -h
+#Alternatively, you can create a passed_barcodes.txt.gz file with a single field called "barcode" and one cell barcode per line
+
 scsnvmisc cells -o sample sample/summary.h5
 
 #Pileup the reads from the collapsed molecules using a list of passed barcodes
@@ -130,7 +132,8 @@ The barcodes should not contain a -1 in them.  For the bam files these will auto
 #### Annotate
 ##### Command:
 ```bash
-scsnvmisc annotate -r ./edits/repeat_masker.txt.gz -d 1000GENOMES.txt.gz -e REDIportal.bed.gz sample/pileup
+scsnvmisc annotate -r ./edits/repeat_masker.txt.gz -d 1000GENOMES.txt.gz -e REDIportal.txt.gz sample/pileup
+#See below to convert the h5 output to market matrices and a basic VCF file
 ```
 ##### Arguments:
 | Option        | Argument      | Function | Required |
@@ -159,14 +162,7 @@ Chromosome mapping files can be found [here](https://github.com/dpryan79/Chromos
 ```bash
 wget ftp://ftp.ensembl.org/pub/release-99/variation/vcf/homo_sapiens/1000GENOMES-phase_3.vcf.gz
 wget ftp://ftp.ensembl.org/pub/release-99/variation/vcf/homo_sapiens/1000GENOMES-phase_3.vcf.gz.csi
-wget http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/ALL.chrMT.phase3_callmom-v0_4.20130502.genotypes.vcf.gz
-wget http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/ALL.chrMT.phase3_callmom-v0_4.20130502.genotypes.vcf.gz.tbi
-
-bcftools view -m2 -M2 -v snps -i "MAF>=0.01" -o 1000GENOMES-filtered.vcf.gz -O z 1000GENOMES-phase_3.vcf.gz
-bcftools +fill-tags ALL.chrMT.phase3_callmom-v0_4.20130502.genotypes.vcf.gz -- -t AF | bcftools view -m2 -M2 -v snps -i "MAF>=0.01" -o ALL.chrMT-filtered.vcf.gz
-
-zgrep --no-filename -E "^(#)" -v ALL.chrMT-filtered.vcf.gz | gzip > ALL.chrMT-filtered-no-header.vcf.gz
-zgrep --no-filename -E "^(#)\1+" -v 1000GENOMES-filtered.vcf.gz ALL.chrMT-filtered-no-header.vcf.gz | cut -f 1,2,4,5 | gzip > 1000GENOMES.txt.gz
+bcftools view --no-header -m2 -M2 -v snps -i "MAF>=0.01" 1000GENOMES-phase_3.vcf.gz | cut -f 1,2,4,5 | gzip > 1000GENOMES.txt.gz
 ```
 
 Note that the chromosome names may need to be remapped depending on the reference build you used for mapping and alignment.
@@ -186,8 +182,23 @@ Chromosome mapping files can be found [here](https://github.com/dpryan79/Chromos
 | sample/snv_reads.txt.gz | SNV co-expression molecule data, the SNV_idx is defined in the snv_map file or the passed_snvs file | 
 | sample/barcode_bases.txt.gz | Maximum collapsed read lengths per barcode |
 
-
 The pileup file can be annotated with various databases using the scsnvmisc annotate command.  The serialized flammkuchen files can be viewed using ddls after flammkuchen is installed. (pip install flammkuchen)
+
+#### Annotated HDF5 to market matrix format
+##### Command:
+```bash
+#You can use scsnvmisc snv2vcfmtx -h to view the command line options
+scsnvmisc snv2vcfmtx -r scsnv_index/gwsc_lenghts.txt -f genome.fa -o <output directory> --max-af 1 -c pileup_annotated.h5
+```
+##### Output Files:
+
+| File        | Contents      |
+| ---------------|:--------------|
+| refs.mtx | Reference base counts for each barcode/SNV |
+| alts.mtx | Alternative base counts for each barcode/SNV |
+| snvs.csv | Annotated SNV information |
+| snvs.vcf | Basic SNV vcf |
+
 
 #### Merge -- Merge the annotated output from multiple alignment tools to calculate accuracy using a matched whole genome or exome sequence
 ##### Command:
